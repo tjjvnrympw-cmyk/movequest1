@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MOVEQUEST – Superkracht</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body { margin: 0; background: #0b1020; color: #eef2ff; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 18px; }
+    .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+            border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    .sub { opacity: .85; margin-bottom: 14px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 720px){ .grid { grid-template-columns: 1.1fr .9fr; } }
+    .btns { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 10px; }
+    button { cursor: pointer; border: 0; border-radius: 14px; padding: 12px 10px; font-weight: 700;
+             color: #0b1020; font-size: 16px; }
+    .b1{ background:#7dd3fc; } .b2{ background:#fde68a; } .b3{ background:#86efac; }
+    .b4{ background:#c4b5fd; color:#0b1020; width:100%; margin-top:10px; }
+    .mission { margin-top: 10px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); }
+    .tag { display:inline-block; font-size:12px; opacity:.9; padding: 4px 10px; border-radius: 999px;
+           border: 1px solid rgba(255,255,255,.18); margin-bottom: 8px; }
+    .big { font-size: 20px; font-weight: 800; margin: 6px 0 6px; }
+    .muted { opacity: .85; }
+    .meter { margin: 10px 0 14px; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+    .bar { height: 14px; border-radius: 999px; background: rgba(255,255,255,.12); overflow:hidden; }
+    .fill { height: 100%; width: 0%; border-radius: 999px; transition: width .35s ease; }
+    .fill.energy { background:#7dd3fc; }
+    .fill.power { background:#fde68a; }
+    .fill.balance { background:#86efac; }
+    .tiny { font-size: 12px; opacity: .8; }
+    .score { font-size: 26px; font-weight: 900; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    .ghost { background: transparent; color:#eef2ff; border:1px solid rgba(255,255,255,.18); }
+    canvas { position: fixed; inset: 0; pointer-events:none; }
+  </style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="wrap">
+  <div class="card">
+    <h1>MOVEQUEST</h1>
+    <div class="sub">Beweeg 30 seconden → druk op <b>Klaar</b> → maak VITA sterker ✨</div>
+
+    <div class="grid">
+      <div>
+        <div class="mission">
+          <span class="tag" id="tag">Kies een missie</span>
+          <div class="big" id="title">Wat gaan we doen?</div>
+          <div class="muted" id="desc">Klik op Energie, Kracht of Balans. Super simpel.</div>
+
+          <div class="btns">
+            <button class="b1" onclick="pick('energy')">💙 Energie</button>
+            <button class="b2" onclick="pick('power')">💛 Kracht</button>
+            <button class="b3" onclick="pick('balance')">💚 Balans</button>
+          </div>
+
+          <button class="b4" id="done" onclick="complete()" disabled>✅ Klaar (ik heb bewogen!)</button>
+
+          <div class="actions">
+            <button class="ghost" onclick="resetAll()">↩ Reset</button>
+            <button class="ghost" onclick="toggleTeam()"><span id="teamLabel">👤 Solo</span></button>
+          </div>
+          <div class="tiny">Tip: zet dit op een digibord. Iedereen doet mee, 1 druk op “Klaar”.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="mission">
+          <div class="row">
+            <div>
+              <div class="tag">Team Power</div>
+              <div class="tiny">Vul de 3 meters om VITA te redden</div>
+            </div>
+            <div class="score" id="stars">⭐ 0</div>
+          </div>
+
+          <div class="meter">
+            <div class="row"><b>💙 Energie</b><span id="eTxt">0 / 10</span></div>
+            <div class="bar"><div class="fill energy" id="eFill"></div></div>
+          </div>
+
+          <div class="meter">
+            <div class="row"><b>💛 Kracht</b><span id="pTxt">0 / 10</span></div>
+            <div class="bar"><div class="fill power" id="pFill"></div></div>
+          </div>
+
+          <div class="meter">
+            <div class="row"><b>💚 Balans</b><span id="bTxt">0 / 10</span></div>
+            <div class="bar"><div class="fill balance" id="bFill"></div></div>
+          </div>
+
+          <div class="mission" style="margin-top:10px">
+            <div class="tag">VITA Status</div>
+            <div class="big" id="status">Nog niet gered…</div>
+            <div class="muted" id="status2">Vul alle meters om te winnen.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // --- Data (kid-proof korte missies) ---
+  const missions = {
+    energy: [
+      {t:"Jog op de plek", d:"Ren rustig 30 seconden op de plek."},
+      {t:"Jumping jacks", d:"Doe 15 jumping jacks (of 30 sec rustig)."},
+      {t:"Trap-steps", d:"Stap snel op en neer alsof je een trap hebt (30 sec)."}
+    ],
+    power: [
+      {t:"Squat challenge", d:"Doe 10 squats (of 30 sec langzaam)."},
+      {t:"Wall push", d:"Duw 20 sec tegen de muur (alsof je hem verplaatst)."},
+      {t:"Kikker-sprongen", d:"Doe 8 kleine kikker-sprongen (veilig en rustig)."}
+    ],
+    balance: [
+      {t:"1 been", d:"Sta 20 sec op 1 been. Wissel dan."},
+      {t:"Touw lopen", d:"Loop 10 stappen op een denkbeeldige lijn."},
+      {t:"Beeld stand", d:"Word een standbeeld: adem rustig 20 sec."}
+    ]
+  };
+
+  // --- State ---
+  const goal = 10; // per meter
+  let selected = null;
+  let energy = 0, power = 0, balance = 0;
+  let stars = 0;
+  let teamMode = false;
+
+  // Load from localStorage (handig voor beurs)
+  const saved = localStorage.getItem("movequest_v1");
+  if(saved){
+    const s = JSON.parse(saved);
+    ({energy, power, balance, stars, teamMode} = s);
+    updateUI();
+  }
+
+  function save(){
+    localStorage.setItem("movequest_v1", JSON.stringify({energy, power, balance, stars, teamMode}));
+  }
+
+  function pick(type){
+    selected = type;
+    const list = missions[type];
+    const m = list[Math.floor(Math.random()*list.length)];
+    document.getElementById("tag").textContent =
+      type === "energy" ? "💙 Energie missie" : type === "power" ? "💛 Kracht missie" : "💚 Balans missie";
+    document.getElementById("title").textContent = m.t;
+    document.getElementById("desc").textContent = m.d;
+
+    // Voor kids: meteen kunnen klikken na bewegen
+    document.getElementById("done").disabled = false;
+    document.getElementById("done").textContent = "✅ Klaar (ik heb bewogen!)";
+  }
+
+  function complete(){
+    if(!selected) return;
+
+    // In teamMode telt 1 druk als "de hele groep deed mee"
+    // In solo telt het voor 1 speler (zelfde effect, minder uitleg)
+    if(selected === "energy") energy = Math.min(goal, energy + 1);
+    if(selected === "power") power = Math.min(goal, power + 1);
+    if(selected === "balance") balance = Math.min(goal, balance + 1);
+
+    stars += 1;
+
+    // win check
+    updateUI();
+    burst();
+    save();
+
+    // reset selection
+    selected = null;
+    document.getElementById("tag").textContent = "Volgende missie";
+    document.getElementById("title").textContent = "Kies er nog één!";
+    document.getElementById("desc").textContent = "Energie, Kracht of Balans.";
+    document.getElementById("done").disabled = true;
+    document.getElementById("done").textContent = "✅ Klaar (ik heb bewogen!)";
+  }
+
+  function updateUI(){
+    const ePct = (energy/goal)*100;
+    const pPct = (power/goal)*100;
+    const bPct = (balance/goal)*100;
+    document.getElementById("eFill").style.width = ePct + "%";
+    document.getElementById("pFill").style.width = pPct + "%";
+    document.getElementById("bFill").style.width = bPct + "%";
+    document.getElementById("eTxt").textContent = `${energy} / ${goal}`;
+    document.getElementById("pTxt").textContent = `${power} / ${goal}`;
+    document.getElementById("bTxt").textContent = `${balance} / ${goal}`;
+    document.getElementById("stars").textContent = `⭐ ${stars}`;
+
+    const done = (energy===goal && power===goal && balance===goal);
+    document.getElementById("status").textContent = done ? "VITA is gered! 🎉" : "Nog niet gered…";
+    document.getElementById("status2").textContent = done
+      ? "Nice! Reset of start een nieuwe ronde."
+      : "Vul alle meters om te winnen.";
+
+    document.getElementById("teamLabel").textContent = teamMode ? "👥 Team" : "👤 Solo";
+  }
+
+  function resetAll(){
+    energy = power = balance = stars = 0;
+    selected = null;
+    localStorage.removeItem("movequest_v1");
+    updateUI();
+    document.getElementById("tag").textContent = "Kies een missie";
+    document.getElementById("title").textContent = "Wat gaan we doen?";
+    document.getElementById("desc").textContent = "Klik op Energie, Kracht of Balans. Super simpel.";
+    document.getElementById("done").disabled = true;
+  }
+
+  function toggleTeam(){
+    teamMode = !teamMode;
+    save();
+    updateUI();
+  }
+
+  // --- Tiny confetti effect (canvas) ---
+  const c = document.getElementById("fx");
+  const ctx = c.getContext("2d");
+  let W,H,parts=[];
+  function resize(){ W=c.width=innerWidth; H=c.height=innerHeight; }
+  addEventListener("resize", resize); resize();
+
+  function burst(){
+    for(let i=0;i<90;i++){
+      parts.push({
+        x: Math.random()*W,
+        y: -20,
+        vx:(Math.random()-0.5)*4,
+        vy:Math.random()*3+2,
+        r:Math.random()*3+2,
+        a:1
+      });
+    }
+    if(parts.length>700) parts = parts.slice(parts.length-700);
+  }
+
+  function tick(){
+    ctx.clearRect(0,0,W,H);
+    parts.forEach(p=>{
+      p.x += p.vx; p.y += p.vy; p.vy += 0.03; p.a -= 0.006;
+      ctx.globalAlpha = Math.max(p.a,0);
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill();
+    });
+    parts = parts.filter(p=>p.a>0 && p.y<H+20);
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  updateUI();
+</script>
+</body>
+</html>
